@@ -1,0 +1,56 @@
+\documentclass{article}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=2cm,right=2cm,marginparwidth=1.75cm]{geometry}
+
+\usepackage[
+backend=biber,
+sorting=ynt,
+doi=false,
+url=false,
+]{biblatex}
+\addbibresource{ref.bib}
+\DeclareFieldFormat{doi/url-link}{#1}
+
+\begin{document}
+
+\title{\textbf{CSC 579 Project Proposal \protect\\ QoE Improvements For Adaptive Video Streaming Over SDN-Enabled Networks}}
+
+\author{Jinwei Zhao, Fatima Amri}
+
+\date{\today}
+
+\maketitle
+
+\section{Proposal}
+
+With the growing popularity of online video delivery and live streaming over today's Internet, one of the most challenging problems is offering the highest possible video quality while ensuring the best quality of experience (QoE) and utilizing network resources efficiently. The ability to measure QoE would provide network operators with some sense of the contribution of the network's performance to the overall customer satisfaction, in terms of dependability, availability, scalability, speed, accuracy, and efficiency. Therefore, improving QoE can ensure high customer satisfaction while consuming minimal network resources.
+
+In conventional networks, streaming clients often compete for network resources without any coordination between each other. Nowadays, the majority of HTTP adaptive streaming (HAS) protocols use TCP as the transport layer protocol, most notably MPEG Dynamic Adaptive Streaming over HTTP (DASH), which is rapidly gaining popularity. By employing TCP, it is possible to significantly reduce the impact of the network fluctuations while enhancing the bandwidth consumption and avoiding congestion, allowing each streaming client to fully exploit available network resources. However, this can lead to QoE fluctuations and unfairness between end-users.
+
+In this project, we aim to explore the user-level fairness factor in the context of adaptive video streaming. We intend to accomplish this through the design of experiments, implementation on testbed platforms, comparison of several proposed models, and giving analysis and explanation.
+
+More particularly, we will focus on and compare two distinct approaches comprehensively. The first approach is improving QoE by a novel user-level network resource fair allocation mechanism, called UFair, using SDN network architecture \cite{mu_scalable_2016}. The second one is the SDN-assisted ABR approach, namely SABR \cite{bhat_network_2017}. In this method, SABR utilizes information on available bandwidths per link and network cache contents to guide video streaming clients with the goal of improving the viewer's QoE.
+
+We will develop our testbed and deploy experiments on the CloudLab platform \cite{Ricci2014IntroducingCS} so that we can be accurate and near-realistic in our results, then we compare these two methods and provide the qualitative and quantitative evaluation of these two approaches.
+
+\section{Tentative schedule}
+\begin{tabular}{|p{3cm}|p{10cm}|}
+    \hline
+    Feb.7-Feb.21 & Read papers, gather ideas, and formulate our possible approaches. \\
+    \hline
+    Feb.21-Mar.7 & Setup testbed, refine our approaches, and design experiments. \\
+    \hline
+    Mar.7-Mar.21 & Mid-term progress report, coding, and performance evaluation. \\
+    \hline
+    Mar.21-Apr.4 & Further analysis and final project report.  \\
+    \hline
+\end{tabular}
+
+\section{Project Website}
+\href{https://csc579s22.wordpress.com/}{https://csc579s22.wordpress.com/}
+
+
+\printbibliography
+
+\end{document}

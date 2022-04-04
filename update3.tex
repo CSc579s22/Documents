@@ -1,0 +1,196 @@
+\documentclass{article}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage[letterpaper,top=2cm,bottom=2cm,left=2cm,right=2cm,marginparwidth=1.75cm]{geometry}
+\usepackage{minted}
+\usepackage[
+backend=biber,
+sorting=ynt,
+doi=false,
+url=true,
+]{biblatex}
+\addbibresource{ref.bib}
+\DeclareFieldFormat{doi/url-link}{#1}
+
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+\begin{document}
+
+\title{\textbf{CSC 579 Project Bi-Weekly Update 3 \protect\\ QoE Improvements For Adaptive Video Streaming Over SDN-Enabled Networks}}
+
+\author{Jinwei Zhao, Fatima Amri}
+
+\date{\today}
+
+\maketitle
+
+\section{Bi-weekly Update 3}
+During these two weeks, we have been working on the coding implementation of our project. Section 2 will update the current progress on the implementation of SABR \cite{bhat_network_2017}, and the implementation of fairness metrics \cite{mu_scalable_2016} will be addressed in Section 3. 
+
+\section{Implementation Progress on SABR, by Jinwei}
+As we've mentioned in the Midterm Update, the authors of \cite{bhat_network_2017} released their code of SABR implementation on GitHub. However, during our experiments in the past two weeks, we found their code is nigh unusable after five years. The reasons are listed as follows.
+
+\subsection{OpenFlow monitoring}
+As they've mentioned in Section 2.2 Monitoring Infrastructure \cite{bhat_network_2017}, accurate bandwidth monitoring of OpenFlow ports is one of the key components of their SABR design. In their implementation, they used SDN-OpenNetMon \cite{openmon}, an OpenFlow monitoring module based on the Pox controller developed by several researchers back in 2015. And since it's just an artifact of a research project, they never updated the SDN-OpenNetMon codebase since the paper's publication. Seven years later, the OpenFlow specification and Open vSwitch API has changed a lot, and SDN-OpenNetMon is not fully compatible with them anymore. 
+
+So if we cannot get OpenFlow bandwidth monitoring working properly, we're missing the core component of this design. We have two options. The first option is debugging SDN-OpenNetMon, making it work properly with the current OpenFlow specification, Open vSwitch API, and Pox API. It's challenging since Pox is also not actively maintained anymore. The second option is that we develop an alternative of SDN-OpenNetMon on our own. Although it sounds complicated, it turns out to be relatively straightforward and much easier than debugging SDN-OpenNetMon. We chose Ryu \cite{ryu} as the SDN framework since it's actively maintained, widely used in production, and it provides detailed documentation and many examples. Ryu already provides an example of OpenFlow port monitoring (\url{https://github.com/faucetsdn/ryu/blob/master/ryu/app/simple_monitor_13.py}) so we can just work on top of that. Our implementation of customized Ryu controller can be found at \url{https://github.com/CSc579s22/Main/blob/master/controller.py}. We followed the ideas of the original SABR code, after the bandwidth measurement is obtained, it's stored in a MongoDB database for future predictions. Although professional time-series database like InfluxDB might be more suitable for the task, we still use MongoDB in this project for the sake of simplicity.
+
+\subsection{Network topology}
+In the original SABR implementation, many parameters and variables are hardcoded, including datapath IDs for OVS switches, client and server IPs, OpenFlow port numbers, network topologies, etc.  \url{https://github.com/dbhat/SABR/blob/master/controllerSABR/forwarding_cloudlab.py#L63-L133}. 
+
+One reason why they hardcoded such information might be that since they provided the CloudLab server topology (\url{https://github.com/dbhat/cloudlab_SABR/blob/master/profile.rspec}), theoretically, future researchers just have to provision servers using the same topology on CloudLab (because server IPs can also be defined in the CloudLab topology file), and they can reproduce the results without any problem. But it limits the scalability of their code, making it very difficult to apply their method on different server topologies. So we made our efforts to make it much more flexible. Our method is illustrated as follows.
+
+Our Ryu controller maintains the network topology at any given time. Once a client is connected to Open vSwitch, the Ryu controller will automatically add it to the topology and start monitoring the corresponding port bandwidth. To do so, we used NetworkX \cite{networkx}, a Python package for the creation, manipulation, and study of the structure, dynamics, and functions of complex networks, to maintain the network topology as a weighted undirected graph $G=(V, E)$, where vertices $V$ includes streaming clients, cache servers and switches, edges $E$ are the corresponding connections between different nodes, and the edge weights can be either bandwidth or link latency. NetworkX also provides useful functions such as shortest path, which can be used in the nearest cache server selection for clients. 
+
+\subsection{Bandwidth prediction}
+In the original SABR implementation, they used the \textit{auto.arima} function in the \textit{forecast} package provided by R programming language to predict future bandwidth for a given link, and they used \textit{rpy2} Python package as the bridge for calling R functions in Python. In our experiment, it's working fine if we just call R functions once, but if we call the same R functions multiple times within a loop, we will get the following error: \textit{Error in ts(x) : 'ts' object must have one or more observations}. Since we have no experience in R, after several failed attempts, we decided to use Python equivalent to replace R's \textit{auto.arima}. We found pmdarima \cite{pmdarima}, which claims provides the equivalent of R's \textit{auto.arima} functionality. It's working properly in our experiment using bandwidth measurement from the previous 10 seconds to make future predictions. But there are still some minor issues we haven't solved yet, probably related to multi-threading, which we will investigate in the following days. 
+
+\subsection{Caching and Caching Server Selection For Clients}
+In the original SABR paper, they didn't mention many details about how to actually implement caching. They only mentioned in Section 5.2 Topology that they run a vanilla Apache2 web server along with an HTTP sniffer and a MongoDB database on cache nodes and together they implement an LRU cache replacement policy. The SABR code does not self-illustrate this issue in a clear way either. So we used Varnish \cite{varnish} instead, a reliable and fast caching HTTP reverse proxy. Varnish also uses LRU as the cache replacement policy. 
+
+In Section 4.2 SDN Assisted Quality Adaptation \cite{bhat_network_2017}, they claimed that clients always choose the cache server with the highest available bandwidth. To do so, they measure $R_{n,k}(i,j)$, which denotes the available bandwidth during the download time of segment $X_{n,k}$. However, the bandwidth is obtained by OpenFlow port measurement, which can only represent current bandwidth, but not the highest available bandwidth. Besides, they didn't mention how to choose the initial cache server before downloading the first segment. 
+
+In our implementation, we used our own approaches. For the initial cache server selection before downloading the first segment, the nearest cache server to the streaming client based on the minimum number of hops, i.e., the shortest path between the client and a list of available cache servers is returned to the client. This is archived by modifying the DASH player AStream, sending requests to the Ryu controller to get the nearest cache server and the corresponding MPD file URL. After the playback started, Ryu controller keeps monitoring bandwidth among all the paths, calculates current fairness metrics (discussed in Section 3), and decides which cache server is more suitable than the initial one for a given client. Meanwhile, the clients (AStream) periodically send requests to the controller requesting the most suitable cache server. If that changes, the clients will download future segments from the new cache server. 
+
+In conclusion, we cannot foresee these issues until we got hands-on experience on SABR code. Fortunately, replacing unusable parts of their code is not very difficult. So far, we have almost finished all the implementations mentioned above. Next, we will address how to integrate fairness metrics and SABR code together. 
+
+\section{Implementation Progress on Fairness Metrics, by Fatima}
+For the implementation of fairness, we have used Python3 as our coding language. Each fairness metric has been implemented as a function, so we can call them in different scenarios and use them in a very flexible way. The complete code is also available at \url{https://github.com/CSc579s22/UFair-Implementation} for now. But it will be integrated into SABR code in the following days. However, we are going to go through each function in this update as well. So far, we have only used two libraries in Python to run our codes, Numpy and Sympy as follows.
+
+\begin{minted}[breaklines]{bash}
+import numpy as np
+from sympy import symbols, Eq, solve
+\end{minted}
+
+According to the mathematical formulation, which we went though in the midterm update in detail, we have started with the implementation of the utility functions and the normalized utility function ($U'$) first. Parameters $a, b$ and $c$ are the coefficients that instantiate the utility function for certain video resolutions. They are given in Table 1 of [2] for three different resolutions. And $r$ is a vector that each element represents the bitrate of each stream. In the next step, we start deploying each fairness metric as a function as follows.
+
+\begin{minted}[breaklines]{bash}
+def Q(a,b,c,r):
+    Q=[]
+    for i in r:
+        Q.append(a*(i**b)+c)
+    return Q
+    
+def U_Prime(N,a,b,c,r,r_max):
+    U_max = a * (r_max) ** b + c
+    for i in range(N):
+        U = (a * (r[i])**b) + c
+        U_prime= U/U_max
+    return U_prime
+\end{minted}
+
+The first function is $VQ-fairness$ which calculate the video quality fairness. As we mentioned already in our previous update, VQ fairness is calculated by means of RSD (relative standard deviation).
+
+\begin{minted}[breaklines]{bash}
+def VQ_fairness(a,b,c,r):
+    Q1= Q(a,b,c,r)
+    s_vq= np.std(Q1)
+    RSD= (100*s_vq)/np.mean(Q1)
+    return RSD
+\end{minted}
+
+The second function is $CT-fairness$ which refers to the cost efficiency metric. In the following function, $N$ is the number of streams, and $r-max$ is the network capacity determines the highest bitrate feasible, which is an integer. 
+
+\begin{minted}[breaklines]{bash}
+def CT_fairness(N,a,b,c,r,r_max):
+    utility= U_Prime(N,a,b,c,r,r_max)
+    CT= np.sum(r)/ np.sum(utility)
+    return CT
+\end{minted}
+
+And finally, the switching impact fairness is implemented as follows. $SI-fairness$ is also been implemented by RSD. To run this part, we need some new parameters which can be obtained through SABR codes. The first one is $t$ which is the current time of the video that needs switching. The second one is $ti$, which represents the time of the quality switch $i$. Therefore, the $t-ti$ shows the duration of time since the previous switching event. And third, $r-prime$ is the bitrate of the projected video quality after the representation switch.
+
+\begin{minted}[breaklines]{bash}
+def SI_fairness(a,b,c,r,t,ti,r_prime):
+    Q1= Q(a,b,c,r)
+    Q_prime= a*(r_prime**b)+c
+    del_Q=[]
+    S1 = []
+    S2=[]
+    for i in len(ti):
+        del_Q[i]=abs(Q1[i]-Q_prime[i])
+        S1[i] = del_Q[i] * np.exp(-0.015 * (t - ti(i)))
+        S2[i] = max(S1[i], 0.1*del_Q[i])
+    s_si=np.std(S2)
+    RSD= (100*s_si)/ np.mean(s_si)
+    return RSD
+\end{minted}
+
+Now, our next step would be to combine all of them to provide user-level fairness containing the three fairness metrics. To this end, we used the optimization method with three stages as have been mentioned in our previous updates. In the first stage, we try to obtain the optimal bitrate for each stream considering the identical video quality on all HAS streams. The parameter $BW$ is the amount of bandwidth. 
+
+\begin{minted}[breaklines]{bash}
+def stage1(N,a,b,c,r_max,BW):
+    r = []
+    eqs = []
+    r = list(symbols('r0:%d' % N))
+    # print(r)
+    for i in range(N):
+        if i == N - 1:
+            break
+        else:
+            eqs.append(Eq(((a * (r[i] ** b) + c) / (a * (r_max ** b) + c)) - ((a * (r[i + 1] ** b) + c) / (a * (r_max ** b) + c)), 0))
+    # print(eqs)
+    sol = solve(eqs)
+    #print(sol)
+    r1 = BW / N
+    #print(r1)
+    opt_r = []
+    for i in range(N):
+        opt_r.append(r1)
+    return sol, opt_r
+\end{minted}
+
+The output of this function is a vector of optimal bitrates. In the second stage, by having the optimal bitrates and MPD file, which includes the different bitrates for each stream, we can find a feasible lower and upper bound for each optimal bitrate in the vector. Then, in the third stage, we can create a candidate list $CL$, containing the $N$ streams in which each stream has one or two representations. The candidate list gets evaluated with three fairness metrics. For each element in $C$, we calculate each of the metrics $VQ-fairness$, $CT-fairness$ and $SI-fairness$, and then combine them to measure the user-level fairness. In order to aggregate fairness metrics in different scales, we rescale the fairness measurements using the maximum observed value as the rescaling factor.
+
+\begin{minted}[breaklines]{bash}
+def stage3(a,b,c,CL,t,ti,r_prime):
+    w=1/3
+    VQ_F1= []
+    CT_F1= []
+    SI_F1= []
+    for r in CL:
+        VQ_F = VQ_fairness(a,b,c,r)
+        VQ_F1.append(VQ_F)
+        CT_F = CT_fairness(a,b,c,r)
+        CT_F1.append(CT_F)
+        SI_F = SI_fairness(a,b,c,r,t,ti,r_prime)
+        SI_F1.append(SI_F)
+    VQ_MAX= max(VQ_F1)
+    CT_MAX= max(CT_F1)
+    SI_MAX= max(SI_F1)
+    VQ_F2=[]
+    CT_F2=[]
+    SI_F2=[]
+    for i in VQ_F1:
+        x=i/VQ_MAX
+        x=w*x
+        VQ_F2.append(x)
+    for j in CT_F1:
+        y=j/CT_MAX
+        y=w*y
+        CT_F2.append(y)
+    for k in SI_F1:
+        z= k/SI_MAX
+        z=w*z
+        SI_F2.append(z)
+    S =[]
+    for n in len(CL):
+        v=VQ_F2[n]+CT_F2[n]+SI_F2[n]
+        S.append(v)
+    S_combined=min(S)
+    return S_combined
+\end{minted}
+
+Eventually, the candidate with a minimum $S_{combined}$ is the best option to achieve the overall user-level fairness.
+
+\section{Next Steps}
+For the initial cache server selection, although it's based on the minimum number of hops in our implementation right now, if time permits in the following two weeks, we would like to add latency between clients and cache servers into consideration as well. But an accurate end-to-end latency measurement is a challenging problem itself, Ryu doesn't provide built-in modules as well. Although we found several existing implementations on GitHub, they're all out of date and need some modifications before working properly. 
+
+We also have to integrate fairness metrics into the existing SABR code. With the equations of these fairness metrics mentioned in Section 3, it should not be too complicated to implement on the Ryu controller. 
+
+Another remaining work is performance evaluation and analysis. The number of quality switches, segment download times can be obtained by analyzing AStream logs. We also would like to add artificial link delays and set limited link speeds to Open vSwitch ports to evaluate the performance of our project. 
+
+\printbibliography
+
+\end{document}
