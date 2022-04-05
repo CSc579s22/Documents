@@ -143,3 +143,44 @@
 
 
 @ARTICLE{survey,  author={Bentaleb, Abdelhak and Taani, Bayan and Begen, Ali C. and Timmerer, Christian and Zimmermann, Roger},  journal={IEEE Communications Surveys   Tutorials},   title={A Survey on Bitrate Adaptation Schemes for Streaming Media Over HTTP},   year={2019},  volume={21},  number={1},  pages={562-585},  doi={10.1109/COMST.2018.2862938}}
+
+@inproceedings{10.1145/2619239.2626296,
+author = {Huang, Te-Yuan and Johari, Ramesh and McKeown, Nick and Trunnell, Matthew and Watson, Mark},
+title = {A Buffer-Based Approach to Rate Adaptation: Evidence from a Large Video Streaming Service},
+year = {2014},
+isbn = {9781450328364},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2619239.2626296},
+doi = {10.1145/2619239.2626296},
+abstract = {Existing ABR algorithms face a significant challenge in estimating future capacity: capacity can vary widely over time, a phenomenon commonly observed in commercial services. In this work, we suggest an alternative approach: rather than presuming that capacity estimation is required, it is perhaps better to begin by using only the buffer, and then ask when capacity estimation is needed. We test the viability of this approach through a series of experiments spanning millions of real users in a commercial service. We start with a simple design which directly chooses the video rate based on the current buffer occupancy. Our own investigation reveals that capacity estimation is unnecessary in steady state; however using simple capacity estimation (based on immediate past throughput) is important during the startup phase, when the buffer itself is growing from empty. This approach allows us to reduce the rebuffer rate by 10-20% compared to Netflix's then-default ABR algorithm, while delivering a similar average video rate, and a higher video rate in steady state.},
+booktitle = {Proceedings of the 2014 ACM Conference on SIGCOMM},
+pages = {187–198},
+numpages = {12},
+keywords = {http-based video streaming, video rate adaptation algorithm},
+location = {Chicago, Illinois, USA},
+series = {SIGCOMM '14}
+}
+
+@article{tyhuang,
+author = {Huang, Te-Yuan and Johari, Ramesh and McKeown, Nick and Trunnell, Matthew and Watson, Mark},
+title = {A Buffer-Based Approach to Rate Adaptation: Evidence from a Large Video Streaming Service},
+year = {2014},
+issue_date = {October 2014},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {44},
+number = {4},
+issn = {0146-4833},
+url = {https://doi.org/10.1145/2740070.2626296},
+doi = {10.1145/2740070.2626296},
+% abstract = {Existing ABR algorithms face a significant challenge in estimating future capacity: capacity can vary widely over time, a phenomenon commonly observed in commercial services. In this work, we suggest an alternative approach: rather than presuming that capacity estimation is required, it is perhaps better to begin by using only the buffer, and then ask when capacity estimation is needed. We test the viability of this approach through a series of experiments spanning millions of real users in a commercial service. We start with a simple design which directly chooses the video rate based on the current buffer occupancy. Our own investigation reveals that capacity estimation is unnecessary in steady state; however using simple capacity estimation (based on immediate past throughput) is important during the startup phase, when the buffer itself is growing from empty. This approach allows us to reduce the rebuffer rate by 10-20% compared to Netflix's then-default ABR algorithm, while delivering a similar average video rate, and a higher video rate in steady state.},
+journal = {SIGCOMM Comput. Commun. Rev.},
+month = {08},
+pages = {187–198},
+numpages = {12},
+keywords = {http-based video streaming, video rate adaptation algorithm}
+}
+
+
+@INPROCEEDINGS{sara,  author={Juluri, Parikshit and Tamarapalli, Venkatesh and Medhi, Deep},  booktitle={2015 IEEE International Conference on Communication Workshop (ICCW)},   title={SARA: Segment aware rate adaptation algorithm for dynamic adaptive streaming over HTTP},   year={2015},  volume={},  number={},  pages={1765-1770},  doi={10.1109/ICCW.2015.7247436}}
