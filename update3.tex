@@ -58,14 +58,14 @@ In conclusion, we cannot foresee these issues until we got hands-on experience o
 \section{Implementation Progress on Fairness Metrics, by Fatima}
 For the implementation of fairness, we have used Python3 as our coding language. Each fairness metric has been implemented as a function, so we can call them in different scenarios and use them in a very flexible way. The complete code is also available at \url{https://github.com/CSc579s22/UFair-Implementation} for now. But it will be integrated into SABR code in the following days. However, we are going to go through each function in this update as well. So far, we have only used two libraries in Python to run our codes, Numpy and Sympy as follows.
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 import numpy as np
 from sympy import symbols, Eq, solve
 \end{minted}
 
 According to the mathematical formulation, which we went though in the midterm update in detail, we have started with the implementation of the utility functions and the normalized utility function ($U'$) first. Parameters $a, b$ and $c$ are the coefficients that instantiate the utility function for certain video resolutions. They are given in Table 1 of [2] for three different resolutions. And $r$ is a vector that each element represents the bitrate of each stream. In the next step, we start deploying each fairness metric as a function as follows.
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def Q(a,b,c,r):
     Q=[]
     for i in r:
@@ -82,7 +82,7 @@ def U_Prime(N,a,b,c,r,r_max):
 
 The first function is $VQ-fairness$ which calculate the video quality fairness. As we mentioned already in our previous update, VQ fairness is calculated by means of RSD (relative standard deviation).
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def VQ_fairness(a,b,c,r):
     Q1= Q(a,b,c,r)
     s_vq= np.std(Q1)
@@ -92,7 +92,7 @@ def VQ_fairness(a,b,c,r):
 
 The second function is $CT-fairness$ which refers to the cost efficiency metric. In the following function, $N$ is the number of streams, and $r-max$ is the network capacity determines the highest bitrate feasible, which is an integer. 
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def CT_fairness(N,a,b,c,r,r_max):
     utility= U_Prime(N,a,b,c,r,r_max)
     CT= np.sum(r)/ np.sum(utility)
@@ -101,7 +101,7 @@ def CT_fairness(N,a,b,c,r,r_max):
 
 And finally, the switching impact fairness is implemented as follows. $SI-fairness$ is also been implemented by RSD. To run this part, we need some new parameters which can be obtained through SABR codes. The first one is $t$ which is the current time of the video that needs switching. The second one is $ti$, which represents the time of the quality switch $i$. Therefore, the $t-ti$ shows the duration of time since the previous switching event. And third, $r-prime$ is the bitrate of the projected video quality after the representation switch.
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def SI_fairness(a,b,c,r,t,ti,r_prime):
     Q1= Q(a,b,c,r)
     Q_prime= a*(r_prime**b)+c
@@ -119,7 +119,7 @@ def SI_fairness(a,b,c,r,t,ti,r_prime):
 
 Now, our next step would be to combine all of them to provide user-level fairness containing the three fairness metrics. To this end, we used the optimization method with three stages as have been mentioned in our previous updates. In the first stage, we try to obtain the optimal bitrate for each stream considering the identical video quality on all HAS streams. The parameter $BW$ is the amount of bandwidth. 
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def stage1(N,a,b,c,r_max,BW):
     r = []
     eqs = []
@@ -143,7 +143,7 @@ def stage1(N,a,b,c,r_max,BW):
 
 The output of this function is a vector of optimal bitrates. In the second stage, by having the optimal bitrates and MPD file, which includes the different bitrates for each stream, we can find a feasible lower and upper bound for each optimal bitrate in the vector. Then, in the third stage, we can create a candidate list $CL$, containing the $N$ streams in which each stream has one or two representations. The candidate list gets evaluated with three fairness metrics. For each element in $C$, we calculate each of the metrics $VQ-fairness$, $CT-fairness$ and $SI-fairness$, and then combine them to measure the user-level fairness. In order to aggregate fairness metrics in different scales, we rescale the fairness measurements using the maximum observed value as the rescaling factor.
 
-\begin{minted}[breaklines]{bash}
+\begin{minted}[breaklines]{python}
 def stage3(a,b,c,CL,t,ti,r_prime):
     w=1/3
     VQ_F1= []
